@@ -163,7 +163,7 @@ PL_BFME2_MULTIPLAYER = {
           "value": (
             "• Join a server:\n"
             "`Cow&Pig`  — Password: `123456`\n"
-            "`Cow&Pig2` — Password: `123456`\n"
+            "`Cow&Pig 2` — Password: `123456`\n"
             "• Open BFME2 → Multiplayer → Network\n"
             "• Host or join a game — no port forwarding needed!"
           )

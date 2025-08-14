@@ -362,7 +362,7 @@ class ReportBuilder:
 		
 def wait_minutes(minutes:int) -> None:
 	towait = minutes*60
-	print(f"Waiting {towait} minutes...")
+	print(f"Waiting {minutes} minutes...")
 	time.sleep(towait)
 		
 
@@ -875,67 +875,71 @@ class ChallengeSystem:
 			BaseDeDatos.CHALLENGES[chakey].post(confirmed=True, delay=delay_between)
 			
 	def execute_argv_operations_if_any(self: "ChallengeSystem", argv: list[str]) -> None:
-		# Ejemplos esperados:
-		# py cha.py action:post id:374 initDelay:4
-		# py cha.py action:post_all id:372 initDelay:4 betweenDelay:7
-		argv_dict: dict[str, Any] = {
-			"action": "post", #or "postall"
-			"delay": 0,
-			"confirmed": False,
-		}
+		from shlex import split
 
-		def parse_argv(argv: list[str]) -> dict[str, str]:
-			result: dict[str, str] = {}
-			for arg in argv[1:]:  # ignoramos el nombre del script
-				if ":" in arg:
-					key, value = arg.split(":", 1)
-					result[key] = value
-			return result
-
-		def coerce_types(raw: dict[str, str]) -> dict[str, Any]:
-			"""Convierte valores a los tipos esperados y valida."""
-			return {
-				"action": raw.get("action", "post"),
-				"cha_id": int(raw["id"]) if "id" in raw else None,
-				"delay": int(raw.get("initDelay", 0)),
-				"betweenDelay": int(raw.get("betweenDelay", 7)),
-				"confirmed": raw.get("confirmed", "true").lower() in ["true", "1", "yes"],
-			}
-		
+		# Rango válido de challenges
 		min_chall = min(BaseDeDatos.CHALLENGES)
 		max_chall = max(BaseDeDatos.CHALLENGES)
 
+		# Valores por defecto
+		argv_dict: dict[str, Any] = {
+			"action": "post",             # "post" o "post_all"
+			"chaId": max_chall,           # Último challenge disponible
+			"initDelay": 0,               # Delay antes del primer post
+			"betweenDelay": 7,            # Delay entre múltiples posts (solo post_all)
+			"confirmed": False,           # Confirmación manual
+		}
+
+		# Parseo de argumentos por CLI
 		if len(argv) > 1:
-			raw_dict = parse_argv(argv)
-			argv_dict = coerce_types(raw_dict)
+			for arg in argv[1:]:  # Ignora el nombre del script
+				if ":" in arg:
+					key, value = arg.split(":", 1)
+					key = key.strip().lower()
+
+					if key in {"id", "chaid"}:
+						key = "chaId"
+						value = int(value)
+					elif key in {"initdelay", "betweendelay"}:
+						value = int(value)
+					elif key == "confirmed":
+						value = value.lower() in {"true", "1", "yes"}
+					elif key == "action":
+						value = value.lower()
+						if value not in {"post", "post_all"}:
+							raise ValueError(f"Acción inválida: {value}")
+					argv_dict[key] = value
 		else:
-			argv_dict["cha_id"] = get_int("Insertar challenge id: ", min=min_chall, max=max_chall)
-			argv_dict["action"] = "post_all" if argv_dict["cha_id"] < max_chall and get_boolean("Post all? ") else "post"
-			argv_dict["delay"] = get_int("Initial delay?: ")
-			argv_dict["betweenDelay"] = get_int("Delay between posts?: ", min=0, max=7) if argv_dict["action"] == "post_all" else 0
-			argv_dict["confirmed"] = True
+			# Modo interactivo si no se pasan argumentos
+			argv_dict["chaId"] = get_int("Insertar challenge id: ", min=min_chall, max=max_chall)
+			argv_dict["action"] = "post_all" if argv_dict["chaId"] < max_chall and get_boolean("¿Postear todos desde este ID? ") else "post"
+			argv_dict["initDelay"] = get_int("Delay inicial (segundos): ", min=0)
+			argv_dict["confirmed"] = False  # Confirmación interactiva no requerida en este modo
 
 		# Validaciones
-		if argv_dict["cha_id"] is None or not (min_chall <= argv_dict["cha_id"] <= max_chall):
-			raise Exception(f"Challenge ID inválido. Rango válido: {min_chall}-{max_chall}")
+		if not (min_chall <= argv_dict["chaId"] <= max_chall):
+			raise ValueError(f"Challenge ID inválido: {argv_dict['chaId']}. Rango válido: {min_chall}-{max_chall}")
 
 		# Ejecución
 		if argv_dict["action"] == "post":
-			instance = BaseDeDatos.CHALLENGES[argv_dict["cha_id"]]
+			instance = BaseDeDatos.CHALLENGES[argv_dict["chaId"]]
 			instance.post(
 				confirmed=argv_dict["confirmed"],
-				delay=argv_dict["delay"],
+				delay=argv_dict["initDelay"],
 			)
+
 		elif argv_dict["action"] == "post_all":
 			self.send_all_posts(
 				confirmed=argv_dict["confirmed"],
-				start_with=argv_dict["cha_id"],
+				start_with=argv_dict["chaId"],
 				finish_at=min_chall,
-				initial_delay=argv_dict["delay"],
+				initial_delay=argv_dict["initDelay"],
 				delay_between=argv_dict["betweenDelay"],
 			)
+
 		else:
-			raise Exception(f"Acción desconocida: {argv_dict['action']}")
+			raise ValueError(f"Acción desconocida: {argv_dict['action']}")
+
 
 	def get_challenge(self: "ChallengeSystem", hint: Optional[int]) -> ChallengeEvent:
 		min=1

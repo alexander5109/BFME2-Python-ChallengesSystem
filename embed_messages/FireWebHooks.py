@@ -50,9 +50,9 @@ def SendDiscordWebhook(payload: Dict[str, Any], webhook_url: str) -> bool:
 
 if __name__ == "__main__":
 	# SendDiscordWebhook(payload = BFME2_DOWNLOAD_PAYLOAD, webhook_url=SECRETS.BFME2_DOWNLOAD_HOOK)
-	# SendDiscordWebhook(payload = BFME2_ONLINE_PAYLOAD, webhook_url=SECRETS.BFME2_ONLINE_HOOK)
+	SendDiscordWebhook(payload = PL_BFME2_MULTIPLAYER, webhook_url=SECRETS.BFME2_ONLINE_HOOK)
 	
 	
-	SendDiscordWebhook(payload = PL_HOME_RULES_AND_WELCOME, webhook_url=SECRETS.DISCORD_RULES_HOOK)
+	# SendDiscordWebhook(payload = PL_HOME_RULES_AND_WELCOME, webhook_url=SECRETS.DISCORD_RULES_HOOK)
 	
 	
