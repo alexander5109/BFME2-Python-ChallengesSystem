@@ -10696,7 +10696,7 @@ Challenge12_GLUTE_vs_DARYL,_7-6,_1.09v2beta
 - Challenge № 12
 - Update 2020-05-20
 
-THE_GLUTE_MASTER (14th) has challenged Daryl (10th) for his spot.
+THE_GLUTE_MASTER (12th) has challenged Daryl (10th) for his spot.
 Mode: Traditional challenge (4 games as 2vs2, 4 games as 1vs1, untie with 1vs1).
 Score 1vs1: 4-3 for THE_GLUTE_MASTER
 Score 2vs2: 3-3 for THE_GLUTE_MASTER
@@ -10758,7 +10758,7 @@ Challenge10_JONES_vs_SCARECROW,_5-7,_1.09v2beta
 - Challenge № 10
 - Update 2020-05-19
 
-Callan (13th) has challenged Scare^Cr0w (8th) for his spot.
+Callan (14th) has challenged Scare^Cr0w (8th) for his spot.
 Mode: Traditional challenge (4 games as 2vs2, 4 games as 1vs1, untie with 1vs1).
 Score 1vs1: 3-4 for Scare^Cr0w
 Score 2vs2: 4-1 for Scare^Cr0w
@@ -10851,7 +10851,7 @@ Challenge7_JONES_vs_TEMPT,_3-7,_1.09v2beta
 - Challenge № 7
 - Update 2020-05-17
 
-Callan (13th) has challenged Temptation (8th) for his spot.
+Callan (14th) has challenged Temptation (8th) for his spot.
 Mode: Traditional challenge (4 games as 2vs2, 4 games as 1vs1, untie with 1vs1).
 Score 1vs1: 4-3 for Temptation
 Score 2vs2: 3-0 for Temptation
@@ -10913,7 +10913,7 @@ Challenge5_JEDGAR_vs_DARYL,_3-6,_1.09v2beta15a4
 - Challenge № 5
 - Update 2020-05-16
 
-J`Edgard (12th) has challenged Daryl (9th) for his spot.
+J`Edgard (13th) has challenged Daryl (9th) for his spot.
 Mode: Traditional challenge (4 games as 2vs2, 4 games as 1vs1, untie with 1vs1).
 Score 1vs1: 5-2 for Daryl
 Score 2vs2: 1-1 for Daryl
@@ -10944,7 +10944,7 @@ Challenge4_MAKA_vs_VITO,_7-6,_1.09v2beta15a4
 - Challenge № 4
 - Update 2020-05-16
 
-Maka` (11th) has challenged Vito (10th) for his spot.
+Maka` (12th) has challenged Vito (10th) for his spot.
 Mode: Traditional challenge (4 games as 2vs2, 4 games as 1vs1, untie with 1vs1).
 Score 1vs1: 4-4 for Maka`
 Score 2vs2: 3-2 for Maka`
@@ -11060,4 +11060,33 @@ Let the challenges continue!
 	3   . 1.6 ArCh4Ng3L        0-0
 	2   . Eol Ecthelion        0-1
 	1   . S@uron               1-0
+```
+------------------------------------
+NO_GAMES_NO_REPLAYS
+```diff
+
+- Challenge № 0
+- Update 2020-03-21
+
+AddAndKickUpdate: Since Challenge 25, THE_GLUTE_MASTER has not played any game or challenge in -72 days.
+
+- THE_GLUTE_MASTER has been kicked from the 10th spot and from the list.
+
++ Vito has been added to the top10 list, starting in the 10th spot.
+
+No wins or losses have been scored.
+
+Let the challenges continue!
+
+		TOP 10
+	10  . Vito                 0-0
+	9   . Daryl                0-0
+	8   . Temptation           0-0
+	7   . Scare^Cr0w           0-0
+	6   . Farmer Lau           0-0
+	5   . Imperialist          0-0
+	4   . Ahwehawe             0-0
+	3   . 1.6 ArCh4Ng3L        0-0
+	2   . S@uron               0-0
+	1   . Eol Ecthelion        0-0
 ```

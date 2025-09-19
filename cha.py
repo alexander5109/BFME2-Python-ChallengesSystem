@@ -424,6 +424,17 @@ class PlayerHistory:
 		self.games_played_2v2 = 0
 		
 	###----------------PlayerHistory.Public.Methods------------###
+	
+	
+	def last_active_challenge(self:"PlayerHistory") -> int|None:
+		today = datetime.today()
+		for challenge in reversed(self.challenges):
+			if challenge.has_replays:
+				return (challenge.date - today).days
+		return None
+	
+	
+	
 	def append_cha(self:"PlayerHistory", challenge:"ChallengeEvent") -> None:
 		self.challenges.append(challenge)
 		self.games_played_total += challenge.games_total
@@ -717,6 +728,10 @@ class PlayerInChallenge:
 		self.wins1v1 = int(wins1v1)
 		self.wins2v2 = int(wins2v2)
 	###----------------PlayerInChallenge.Properties-------------###
+	
+	
+	
+	
 	@cached_property
 	def wins(self) -> int:
 		return self.wins1v1 + self.wins2v2
@@ -762,19 +777,20 @@ class PlayerInChallenge:
 #"""---------------------------------------BaseDeDatos.Class.04-----------------------------------------"""#
 #-------------------------------------------------------------------------------------------------------------#
 class BaseDeDatosClass:
+	PLAYERS:dict[str, PlayerHistory]
+	top10list:list[PlayerHistory]
 	def __init__(self, players_json: Path, chacsv: Path):
 		player_data: dict[str, dict[str, dict[str, list[str]]]] = json.load(open(players_json))
 		self.chacsv = chacsv
 		self.PLAYERS  = { key: PlayerHistory(key, value) for key, value in player_data["active_players"].items() }
 		self.top10list = list(map(lambda x: self.PLAYERS[x], player_data["legacy"]["top10"]))
-		self.CHALLENGES = self.__read_CHALLENGES()
 	
 	def re_write_csv_dabase(self: "BaseDeDatosClass"):
 		# if not get_boolean("Are you sure you want to re-write the .csv database? You better have a backup"):
 			# return
 			
 		supastring = "key;version;w_key;w_wins1v1;w_wins2v2;l_key;l_wins1v1;l_wins2v2;date;notes\n"
-		for cha in reversed(list(self.CHALLENGES.values())):
+		for cha in reversed(self.CHALLENGES):
 			supastring += cha.as_row()
 
 		with open(self.chacsv, mode='w', newline='', encoding='latin1') as file:
@@ -782,34 +798,32 @@ class BaseDeDatosClass:
 		print(".csv guardado.")
 		
 	###----------------ChallengeSystem.Private.Methods------------###
-	def __read_CHALLENGES(self: "BaseDeDatosClass") -> dict[int, ChallengeEvent]:
-		def sorted_dict_of_chall_from_lines(lines: list[str]):
-			headers = lines[0].strip().split(';')
-			rows = [line.strip().split(';') for line in lines[1:]]
-			key_column = 0 #the column that says KEY
-			sorted_rows = sorted(rows, key=lambda row: int(row[key_column]))
-			dataaaa:dict[int,ChallengeEvent] = {}
-			for row in sorted_rows:
-				row_dict = {headers[i]: row[i] for i in range(len(headers))}
-				key = int(row_dict['key'])
-				version = row_dict['version']
-				dataaaa[key] = ChallengeEvent.FromRow(key, version, row_dict)
-			return dataaaa
-			
+	@cached_property
+	def CHALLENGES(self: "BaseDeDatosClass") -> list[ChallengeEvent]:
 		if not self.chacsv.exists() or self.chacsv.stat().st_size == 0:
 			raise Exception(f"No existe {self.chacsv}")
-			return
-		else:
-			with open(self.chacsv, mode='r', encoding='latin1') as file:
-				lines: list[str] = file.readlines()
-			return sorted_dict_of_chall_from_lines(lines)
+			
+		lines = self.chacsv.read_text(encoding='latin1').splitlines()
+		headers = lines[0].strip().split(';')
+		rows = [line.strip().split(';') for line in lines[1:]]
+		key_column = 0  # the column that says KEY
+		sorted_rows = sorted(rows, key=lambda row: int(row[key_column]))
+
+		# find max key to pre-size the list
+		max_key = max(int(row[key_column]) for row in sorted_rows)
+		dataaaa: list[ChallengeEvent | None] = [None] * (max_key + 1)
+
+		for row in sorted_rows:
+			row_dict = {headers[i]: row[i] for i in range(len(headers))}
+			key = int(row_dict['key'])
+			version = row_dict['version']
+			dataaaa[key] = ChallengeEvent.FromRow(key, version, row_dict)
+		return cast(list[ChallengeEvent], dataaaa)
+		
 		
 		
 class ChallengeSystem:
 	TOP_OF = 9 # 14 # 20
-	PLAYERS:dict[str, PlayerHistory]
-	top10list:list[PlayerHistory]
-	CHALLENGES: dict[int, ChallengeEvent]
 	def __init__(self, chareps: Path, chalog: Path, status: Path, webhook_url:str) -> None:
 		self.chareps = chareps
 		self.chalog = chalog
@@ -817,8 +831,20 @@ class ChallengeSystem:
 		self.webhook_url = webhook_url
 	
 	###----------------ChallengeSystem.Public.Methods------------###
+	
+	
+	def show_most_inactive_players(self: "ChallengeSystem") -> None:
+		# sorted_players = sorted(BaseDeDatos.top10list[0:10], key=lambda x: [x.last_challenge.date]) # type: ignore
+		print("Most inactive players")
+		for i, player, in enumerate(BaseDeDatos.top10list, start=1):
+			print(f"Rank {i}: {player.name} | Inactive days: {player.last_active_challenge()}")
+			
+	
+	
+	
+	
 	def do_stuff(self: "ChallengeSystem") -> None:
-		for challenge in BaseDeDatos.CHALLENGES.values():
+		for challenge in BaseDeDatos.CHALLENGES:
 			challenge.do_stuff()
 		
 	def get_top10string(self: "ChallengeSystem") -> str:
@@ -845,7 +871,7 @@ class ChallengeSystem:
 			print(f"* {self.status.name} was updated")
 			
 	def write_embeds(self: "ChallengeSystem") -> None:
-		all_instances = {cha.id: cha.embed for cha in reversed(BaseDeDatos.CHALLENGES.values())}
+		all_instances = {cha.id: cha.embed for cha in reversed(BaseDeDatos.CHALLENGES)}
 		filepath = r"output\embeds.json"
 		with open(filepath, "w") as json_file:
 			json.dump(all_instances, json_file, indent=4)
@@ -854,7 +880,7 @@ class ChallengeSystem:
 	def write_chalog(self: "ChallengeSystem") -> None:
 		# super_string = f"##AutoGenerated by 'ChallengeSystem' {datetime.today().strftime("%Y-%m-%d")}\nRegards, Bambi\n\n"
 		super_string = f"##AutoGenerated by 'ChallengeSystem'\nRegards, Bambi\n\n"
-		for num, cha in enumerate( sorted( BaseDeDatos.CHALLENGES.values(),reverse=True ) , start=1):
+		for num, cha in enumerate( sorted( BaseDeDatos.CHALLENGES,reverse=True ) , start=1):
 			if num == 1:
 				cha.Rename_existing_replaypack("torename.rar", compress=False)
 				print(cha)
@@ -878,8 +904,8 @@ class ChallengeSystem:
 		from shlex import split
 
 		# Rango válido de challenges
-		min_chall = min(BaseDeDatos.CHALLENGES)
-		max_chall = max(BaseDeDatos.CHALLENGES)
+		min_chall = BaseDeDatos.CHALLENGES[0].id
+		max_chall = BaseDeDatos.CHALLENGES[-1].id
 
 		# Valores por defecto
 		argv_dict: dict[str, Any] = {
@@ -947,7 +973,7 @@ class ChallengeSystem:
 		max=len(BaseDeDatos.CHALLENGES)
 		if hint is None:
 			return BaseDeDatos.CHALLENGES[get_int(f"Select challenge. Type the ID (min: {min}, max:{max}): ", indent=0, min=min, max=max)]
-		elif result := BaseDeDatos.CHALLENGES.get(cast(int, hint)):
+		elif result := BaseDeDatos.CHALLENGES[hint]:
 			return result
 		else:
 			raise Exception(f"Challenge of id {hint} not found. Logged challenges are between {min} and {max}.")
@@ -996,6 +1022,8 @@ if __name__ == "__main__":
 	
 	ChaSys.write_chalog();
 	ChaSys.write_status();
+	ChaSys.show_most_inactive_players();
+	
 	# ChaSys.write_embeds();
 	# BaseDeDatos.re_write_csv_dabase();
 	
