@@ -620,9 +620,7 @@ class ChallengeEvent:
 		
 		
 	def preguntar_por_replaypack(self: "ChallengeEvent") -> None:
-		if not self.has_replays:
-			return
-		while not self.replays_dir.exists():
+		while self.has_replays and not self.replays_dir.exists():
 			if not get_boolean(f"Replay pack not found: << {self.replays_dir.relative_to(self.replays_dir.parent.parent)} >> \n{self.replays_dir.stem}\n\tDo you want to make sure to rename replays accordingly and try again?"):
 				sys.exit("Ok bye")
 				
@@ -633,7 +631,6 @@ class ChallengeEvent:
 	def post(self: "ChallengeEvent", confirmed: bool, delay: int) -> None:
 		if not confirmed and not get_boolean(f"\tConfirm send challenge Nº{self.id} to Chlng|Updates?"):
 			return
-		self.preguntar_por_replaypack()
 		if delay:
 			wait_minutes(delay)
 		discord_message = "📢 **Challenge Update!** A new match result is in! Check out the details below."
@@ -870,6 +867,9 @@ class ChallengeSystem:
 	def send_all_posts(self: "ChallengeSystem", confirmed:bool, start_with:int, finish_at: int, initial_delay: int, delay_between: int) -> None:
 		if not confirmed and not get_boolean(f"Confirm do you want recursively post challenges between {start_with}-{finish_at} in {initial_delay} minutes each {delay_between} minutes"):
 			return
+		for chakey in range(start_with, finish_at+1):
+			BaseDeDatos.CHALLENGES[chakey].preguntar_por_replaypack()	
+		
 		BaseDeDatos.CHALLENGES[start_with].post(confirmed=True, delay=initial_delay)
 		for chakey in range(start_with+1, finish_at+1):
 			BaseDeDatos.CHALLENGES[chakey].post(confirmed=True, delay=delay_between)
@@ -913,7 +913,7 @@ class ChallengeSystem:
 			# Modo interactivo si no se pasan argumentos
 			argv_dict["chaId"] = get_int("Insertar challenge id: ", min=min_chall, max=max_chall)
 			argv_dict["action"] = "post_all" if argv_dict["chaId"] < max_chall and get_boolean("¿Postear todos desde este ID? ") else "post"
-			argv_dict["initDelay"] = get_int("Delay inicial (segundos): ", min=0)
+			argv_dict["initDelay"] = get_int("Delay inicial (minutos): ", min=0)
 			argv_dict["confirmed"] = False  # Confirmación interactiva no requerida en este modo
 
 		# Validaciones
@@ -923,6 +923,7 @@ class ChallengeSystem:
 		# Ejecución
 		if argv_dict["action"] == "post":
 			instance = BaseDeDatos.CHALLENGES[argv_dict["chaId"]]
+			instance.preguntar_por_replaypack()
 			instance.post(
 				confirmed=argv_dict["confirmed"],
 				delay=argv_dict["initDelay"],
@@ -932,7 +933,7 @@ class ChallengeSystem:
 			self.send_all_posts(
 				confirmed=argv_dict["confirmed"],
 				start_with=argv_dict["chaId"],
-				finish_at=min_chall,
+				finish_at=max_chall,
 				initial_delay=argv_dict["initDelay"],
 				delay_between=argv_dict["betweenDelay"],
 			)

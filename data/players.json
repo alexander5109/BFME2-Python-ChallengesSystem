@@ -11,6 +11,14 @@
         }
     },
     "active_players": {
+        "KIDD": {
+            "nicknames": ["Kid Kurddi"],
+            "discord_ids": ["#kurddstompa_79556"]
+        },
+        "MATHIAS": {
+            "nicknames": ["Mathias"],
+            "discord_ids": ["#mathiasss0520"]
+        },
         "TARANTULA": {
             "nicknames": ["Tarantula"],
             "discord_ids": ["#tarantula211"]
