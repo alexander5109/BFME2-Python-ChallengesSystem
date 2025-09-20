@@ -11,6 +11,7 @@ import time
 from dotenv import load_dotenv
 from typing import Protocol, Union, Optional, cast, Any, Callable, Type, List, Dict # type: ignore
 import os
+# from pprint import pprint
 load_dotenv()
 class SECRETS:
     PIG_WEB_HOOK = os.environ["PIG_WEB_HOOK"]
@@ -24,12 +25,12 @@ class SECRETS:
 
 class IntegrityChecker:
 	@staticmethod 
-	def checkNoGamesChall(event: "ChallengeEvent"):
+	def CheckIntegrity_NoGames(event: "ChallengeEvent"):
 		"NoScoreChallenge - don't log me with games"
 		if event.games_total:
 			raise Exception(f"Error en el csv. Los jugadores deben tener 0 wins en un challenge tipo {event.version}.")
 	@staticmethod 
-	def checkNormalChall(event: "ChallengeEvent"):
+	def CheckIntegrity_Normal(event: "ChallengeEvent"):
 		"NormalChallenge - don't log me numbers"
 		if not event.games_total:
 			raise Exception(f"Error en el csv. Los jugadores deben tener juegos en un challenge tipo {event.version}.")
@@ -38,7 +39,7 @@ class IntegrityChecker:
 
 class ChallengeReportHeading:
 	@staticmethod 
-	def BaseChallengeHeader(event: "ChallengeEvent") -> str:
+	def ReportHeader_NormalChall(event: "ChallengeEvent") -> str:
 		# Comportamiento normal
 		return (
 			f"\n\n{event.challenger.history.name} ({event.challenger.rank_ordinal}) has challenged "
@@ -46,23 +47,23 @@ class ChallengeReportHeading:
 		)
 		
 	@classmethod 
-	def EnrichedChallengeHeader(cls, event: "ChallengeEvent") -> str:
+	def ReportHeader_2v2Challenge(cls, event: "ChallengeEvent") -> str:
 		# Comportamiento normal + traditional chlng reference
-		string = cls.BaseChallengeHeader(event)
+		string = cls.ReportHeader_NormalChall(event)
 		if event.games2v2:
 			string += "\nMode: Traditional challenge (4 games as 2vs2, 4 games as 1vs1, untie with 1vs1)."
 		return string
 		
 		
 	@staticmethod 
-	def NoChallengeHeader(event: "ChallengeEvent") -> str:
+	def ReportHeader_KickAddMode(event: "ChallengeEvent") -> str:
 		# in KickAddChallenge noone challenged anyone
 		return ""
 		
 		
 class PlayerHistoryImpacter:
 	@staticmethod 
-	def impactNormalChall(event: "ChallengeEvent"):
+	def ImpactPlayers_Normal(event: "ChallengeEvent"):
 		"NormalChallenge is the only one that impacts historial"
 		event.winner.history.append_cha(event)
 		event.loser.history.append_cha(event)
@@ -70,47 +71,37 @@ class PlayerHistoryImpacter:
 		event.loser.history.append_cha_win_lose(event.loser)
 			
 	@staticmethod 
-	def impactNoGamesChall(event: "ChallengeEvent"):
+	def ImpactPlayers_NoGames(event: "ChallengeEvent"):
 		event.winner.history.append_cha(event)
 		event.loser.history.append_cha(event)
 			
 class Top10Impacter:
 	@staticmethod 
-	def impactTop10Normal(event: "ChallengeEvent"):
+	def ImpactTopBestList_Normal(event: "ChallengeEvent"):
 		"NormalChallenge - winner_takes_over"
 		if event.challenger is event.winner:
 			# if not isinstance(event, (NormalChallenge, NoScoreChallenge)):
 			# 	raise Exception(f"Wtf class? {type(event)}")
-			BaseDeDatos.top10list.remove(event.winner.history) 
-			BaseDeDatos.top10list.insert(event.loser.history.get_rank(), event.winner.history) 
+			BaseDeDatos.TopPlayersList.remove(event.winner.history) 
+			BaseDeDatos.TopPlayersList.insert(event.loser.history.get_rank(), event.winner.history) 
 
 	@staticmethod 
-	def impactTop10InsertAtRank10(event: "ChallengeEvent"):
+	def ImpactTopBestList_InsertAt10(event: "ChallengeEvent"):
 		"KickAddChallenge - unique method"
 		insert_at_rank = 10
-		BaseDeDatos.top10list.remove(event.loser.history)
-		BaseDeDatos.top10list.remove(event.winner.history)
-		BaseDeDatos.top10list.insert(insert_at_rank-1, event.loser.history)
-		BaseDeDatos.top10list.insert(insert_at_rank-1, event.winner.history)
+		BaseDeDatos.TopPlayersList.remove(event.loser.history)
+		BaseDeDatos.TopPlayersList.remove(event.winner.history)
+		BaseDeDatos.TopPlayersList.insert(insert_at_rank-1, event.loser.history)
+		BaseDeDatos.TopPlayersList.insert(insert_at_rank-1, event.winner.history)
 
 	@staticmethod 
-	def impactTop10InsertAtRank12(event: "ChallengeEvent"):
+	def ImpactTopBestList_InsertAt12(event: "ChallengeEvent"):
 		"KickAddChallenge - unique method"
 		insert_at_rank = 12
-		BaseDeDatos.top10list.remove(event.loser.history)
-		BaseDeDatos.top10list.remove(event.winner.history)
-		BaseDeDatos.top10list.insert(insert_at_rank-1, event.loser.history)
-		BaseDeDatos.top10list.insert(insert_at_rank-1, event.winner.history)
-
-@dataclass
-class ChallengeBehavior:
-    check_integrity: Callable
-    impact_players: Callable
-    impact_top10: Callable
-    get_report: Callable
-    get_embed: Callable
-    post_to_discord: Callable
-    report_header: Callable
+		BaseDeDatos.TopPlayersList.remove(event.loser.history)
+		BaseDeDatos.TopPlayersList.remove(event.winner.history)
+		BaseDeDatos.TopPlayersList.insert(insert_at_rank-1, event.loser.history)
+		BaseDeDatos.TopPlayersList.insert(insert_at_rank-1, event.winner.history)
 	
 class EmbedBuilders:
 	@classmethod 
@@ -130,7 +121,7 @@ class EmbedBuilders:
 		
 		
 	@classmethod 
-	def GetNoScoreChallengeEmbed(cls: Type["EmbedBuilders"], event: "ChallengeEvent") -> Dict[str, Any]:
+	def GetEmbed_NoScoreChall(cls: Type["EmbedBuilders"], event: "ChallengeEvent") -> Dict[str, Any]:
 		#NoScoreChallenge behavior
 		return cls.__base_embed(event) | {
 			"fields": [{
@@ -161,7 +152,7 @@ class EmbedBuilders:
 		}
 		
 	@classmethod
-	def GetKickAddChallengeEmbed(cls: Type["EmbedBuilders"], event: "ChallengeEvent") -> Dict[str, Any]:
+	def GetEmbed_KickAddModeAt10(cls: Type["EmbedBuilders"], event: "ChallengeEvent") -> Dict[str, Any]:
 		#KickAddChallenge behavior
 		return cls.__base_embed(event) | {
 			"fields": [{
@@ -190,9 +181,39 @@ class EmbedBuilders:
 				}
 			],
 		}
+	@classmethod
+	def GetEmbed_KickAddModeAt12(cls: Type["EmbedBuilders"], event: "ChallengeEvent") -> Dict[str, Any]:
+		#KickAddChallenge behavior
+		return cls.__base_embed(event) | {
+			"fields": [{
+					"name": "Kick-Add Update",
+					"value": (
+						f"- Since Challenge {event.defender.previous_challenge.id}, {event.defender.history.name} has not played any game or challenge in {event.defender.days_since_last_chall} days."
+					),
+					"inline": False
+				},{
+					"name": "Outcome",
+					"value": (
+						"```diff\n"
+						f"- {event.defender.history.name} ({event.defender.rank_ordinal}) has been kicked from the list.\n"
+						f"+ {event.challenger.history.name} has been set to the 12th spot.\n"
+						"```"
+					),
+					"inline": False
+				},{
+					"name": "Scores",
+					"value": "- No wins or losses have been scored.",
+					"inline": False
+				},{
+					"name": "Let the Challenges Continue!",
+					"value": f"```diff\n{event.top10string}```",
+					"inline": False
+				}
+			],
+		}
 		
 	@classmethod 
-	def GetNormalChallengeEmbed(cls: Type["EmbedBuilders"], event: "ChallengeEvent") -> Dict[str, Any]:
+	def GetEmbed_Normal(cls: Type["EmbedBuilders"], event: "ChallengeEvent") -> Dict[str, Any]:
 		#NormalChallenge behavior
 		score = f"- **Score 1vs1**: {event.winner.wins1v1}-{event.loser.wins1v1} for **{event.winner.history.name}**"
 		if event.games2v2:
@@ -242,8 +263,8 @@ class EmbedBuilders:
 			
 class DiscordPoster:
 	@staticmethod 
-	def NormalChallengePoster(event: "ChallengeEvent", discord_message:str) -> requests.Response:
-		print("NormalChallenge doing a NormalChallengePoster") 
+	def PostToDiscord_Normal(event: "ChallengeEvent", discord_message:str) -> requests.Response:
+		print("NormalChallenge doing a PostToDiscord_Normal") 
 		response = requests.post(
 			ChaSys.webhook_url,
 			data={"content": discord_message},
@@ -269,8 +290,8 @@ class DiscordPoster:
 		)
 				
 	@staticmethod 
-	def KickAddChallengePoster(event: "ChallengeEvent", discord_message:str) -> requests.Response:
-		print("KickAddChallenge doing a KickAddChallengePoster") 
+	def PostToDiscord_KickAddMode(event: "ChallengeEvent", discord_message:str) -> requests.Response:
+		print("KickAddChallenge doing a PostToDiscord_KickAddMode") 
 		if event.notes:
 			event.embed["fields"].insert(-2,{
 				"name": "Comments: ",
@@ -285,8 +306,8 @@ class DiscordPoster:
 		
 				
 	@staticmethod 
-	def NoScoreChallengePoster(event: "ChallengeEvent", discord_message:str) -> requests.Response:
-		print("NoScoreChallenge doing a NoScoreChallengePoster") 
+	def PostToDiscord_NoScoreMode(event: "ChallengeEvent", discord_message:str) -> requests.Response:
+		print("NoScoreChallenge doing a PostToDiscord_NoScoreMode") 
 		if event.notes:
 			event.embed["fields"].insert(-2,{
 				"name": "Comments: ",
@@ -308,7 +329,7 @@ class HtmlColors:
 
 class ReportBuilder:
 	@staticmethod 
-	def GetKickAddReport(event: "ChallengeEvent") -> str:
+	def GetReport_KickAddAt12(event: "ChallengeEvent") -> str:
 		# KickAddChallenge behavior
 		commment_line = f"\n\n\tComment: {event.notes}" if event.notes else ""
 		return (
@@ -316,13 +337,26 @@ class ReportBuilder:
 			f"\n\nAddAndKickUpdate: "
 			f"Since Challenge {event.defender.previous_challenge.id}, {event.defender.history.name} has not played any game or challenge in {event.defender.days_since_last_chall} days."
 			f"\n\n- {event.defender.history.name} has been kicked from the {event.defender.rank_ordinal} spot and from the list."
-			f"\n\n+ {event.challenger.history.name} has been added to the top10 list, starting in the 10th spot."
+			f"\n\n+ {event.challenger.history.name} has been added to the top best players list, starting in the 12th spot."
+			f"{commment_line}"
+			f"\n\nNo wins or losses have been scored."
+		)
+	@staticmethod 
+	def GetReport_KickAddAt10(event: "ChallengeEvent") -> str:
+		# KickAddChallenge behavior
+		commment_line = f"\n\n\tComment: {event.notes}" if event.notes else ""
+		return (
+			f"{event.behavior.report_header(event)}"
+			f"\n\nAddAndKickUpdate: "
+			f"Since Challenge {event.defender.previous_challenge.id}, {event.defender.history.name} has not played any game or challenge in {event.defender.days_since_last_chall} days."
+			f"\n\n- {event.defender.history.name} has been kicked from the {event.defender.rank_ordinal} spot and from the list."
+			f"\n\n+ {event.challenger.history.name} has been added to the top best players list, starting in the 10th spot."
 			f"{commment_line}"
 			f"\n\nNo wins or losses have been scored."
 		)
 		
 	@staticmethod 
-	def GetNoScoreReport(event: "ChallengeEvent") -> str:
+	def GetReport_NoScore(event: "ChallengeEvent") -> str:
 		# NoScoreChallenge behavior
 		commment_line = f"\n\n\tComment: {event.notes}" if event.notes else ""
 		return (
@@ -334,7 +368,7 @@ class ReportBuilder:
 		)
 
 	@staticmethod 
-	def GetNormalChallengeReport(event: "ChallengeEvent") -> str:
+	def GetReport_Normal(event: "ChallengeEvent") -> str:
 		# NormalChallenge behavior
 		def __report_01_report_defenseortakeover():
 			flawlessly = "flawlessly " if event.loser.wins == 0 else ""
@@ -368,10 +402,14 @@ class ReportBuilder:
 		
 		
 		
-def wait_minutes(minutes:int) -> None:
-	towait = minutes*60
-	print(f"Waiting {minutes} minutes...")
-	time.sleep(towait)
+
+def wait_minutes(minutes: int) -> None:
+	towait = minutes * 60
+	for remaining in range(towait, 0, -1):
+		sys.stdout.write(f"\rWaiting... {remaining} seconds left...")
+		sys.stdout.flush()
+		time.sleep(1)
+	sys.stdout.write("\rDone!                          \n")
 		
 
 def get_int(msg:str , indent: int=0, show_error: bool=True, min:Optional[int]=None, max:Optional[int]=None) -> int:
@@ -462,7 +500,7 @@ class PlayerHistory:
 		return f"|{self.key}|\tRank:{self.get_rank()}\t|Wins:{self.cha_wins}|Loses:{self.cha_loses}"
 		
 	def get_rank(self) -> int:
-		return BaseDeDatos.top10list.index(self)
+		return BaseDeDatos.TopPlayersList.index(self)
 		
 	def get_1v1_vs(self:"PlayerHistory", other:"PlayerHistory", print_em:bool=True) -> Optional[bool]:
 		self_wins:set[ChallengeEvent] = {cha for cha in self.challenges if cha.winner.history == self and cha.loser.history == other}
@@ -534,9 +572,20 @@ class PlayerHistory:
 #"""---------------------------------ChallengeEvent.Class.02----------------------------"""#
 #------------------------------------------------------------------------------------------#
 @dataclass
+class ChallengeBehavior:
+	check_integrity: Callable
+	impact_players: Callable
+	impact_top10: Callable
+	get_report: Callable[["ChallengeEvent"], str]
+	get_embed: Callable[["ChallengeEvent"], dict[str, Any]]
+	post_to_discord: Callable
+	report_header: Callable
+	
+	
+	
+@dataclass(frozen=False)
 class ChallengeEvent:
 	id: int
-	row: dict[str, str]
 	embed_color: int
 	behavior: ChallengeBehavior
 	version: str
@@ -556,16 +605,15 @@ class ChallengeEvent:
 		if version == "NO_SCORE_MODE":
 			return cls(
 				id = cha_id, 
-				row = row, 
 				embed_color = HtmlColors.ORANGEISH, 
 				behavior = ChallengeBehavior(
-					check_integrity = IntegrityChecker.checkNoGamesChall,
-					impact_players = PlayerHistoryImpacter.impactNoGamesChall,
-					impact_top10 = Top10Impacter.impactTop10Normal,
-					get_report = ReportBuilder.GetNoScoreReport,
-					get_embed = EmbedBuilders.GetNoScoreChallengeEmbed,
-					post_to_discord = DiscordPoster.NoScoreChallengePoster,
-					report_header = ChallengeReportHeading.BaseChallengeHeader,
+					check_integrity = IntegrityChecker.CheckIntegrity_NoGames,
+					impact_players = PlayerHistoryImpacter.ImpactPlayers_NoGames,
+					impact_top10 = Top10Impacter.ImpactTopBestList_Normal,
+					get_report = ReportBuilder.GetReport_NoScore,
+					get_embed = EmbedBuilders.GetEmbed_NoScoreChall,
+					post_to_discord = DiscordPoster.PostToDiscord_NoScoreMode,
+					report_header = ChallengeReportHeading.ReportHeader_NormalChall,
 				),
 				has_replays = False, 
 				version = row["version"],
@@ -577,16 +625,15 @@ class ChallengeEvent:
 		elif version == "KICK_AND_ADD_AT_10":
 			return cls(
 				id = cha_id, 
-				row = row, 
 				embed_color = HtmlColors.PURPLEISH, 
 				behavior = ChallengeBehavior(
-					check_integrity = IntegrityChecker.checkNoGamesChall,
-					impact_players = PlayerHistoryImpacter.impactNoGamesChall,
-					impact_top10 = Top10Impacter.impactTop10InsertAtRank10,
-					get_report = ReportBuilder.GetKickAddReport,
-					get_embed = EmbedBuilders.GetKickAddChallengeEmbed,
-					post_to_discord = DiscordPoster.KickAddChallengePoster,
-					report_header = ChallengeReportHeading.NoChallengeHeader,
+					check_integrity = IntegrityChecker.CheckIntegrity_NoGames,
+					impact_players = PlayerHistoryImpacter.ImpactPlayers_NoGames,
+					impact_top10 = Top10Impacter.ImpactTopBestList_InsertAt10,
+					get_report = ReportBuilder.GetReport_KickAddAt10,
+					get_embed = EmbedBuilders.GetEmbed_KickAddModeAt10,
+					post_to_discord = DiscordPoster.PostToDiscord_KickAddMode,
+					report_header = ChallengeReportHeading.ReportHeader_KickAddMode,
 				),
 				has_replays = False, 
 				version = row["version"],
@@ -598,16 +645,15 @@ class ChallengeEvent:
 		elif version == "KICK_AND_ADD_AT_12":
 			return cls(
 				id = cha_id, 
-				row = row, 
 				embed_color = HtmlColors.PURPLEISH, 
 				behavior = ChallengeBehavior(
-					check_integrity = IntegrityChecker.checkNoGamesChall,
-					impact_players = PlayerHistoryImpacter.impactNoGamesChall,
-					impact_top10 = Top10Impacter.impactTop10InsertAtRank12,
-					get_report = ReportBuilder.GetKickAddReport,
-					get_embed = EmbedBuilders.GetKickAddChallengeEmbed,
-					post_to_discord = DiscordPoster.KickAddChallengePoster,
-					report_header = ChallengeReportHeading.NoChallengeHeader,
+					check_integrity = IntegrityChecker.CheckIntegrity_NoGames,
+					impact_players = PlayerHistoryImpacter.ImpactPlayers_NoGames,
+					impact_top10 = Top10Impacter.ImpactTopBestList_InsertAt12,
+					get_report = ReportBuilder.GetReport_KickAddAt12,
+					get_embed = EmbedBuilders.GetEmbed_KickAddModeAt12,
+					post_to_discord = DiscordPoster.PostToDiscord_KickAddMode,
+					report_header = ChallengeReportHeading.ReportHeader_KickAddMode,
 				),
 				has_replays = False, 
 				version = row["version"],
@@ -619,16 +665,15 @@ class ChallengeEvent:
 		else:
 			return cls(
 				id = cha_id, 
-				row = row, 
 				embed_color = HtmlColors.BLUEISH,
 				behavior = ChallengeBehavior(
-					check_integrity = IntegrityChecker.checkNormalChall,
-					impact_players = PlayerHistoryImpacter.impactNormalChall,
-					impact_top10 = Top10Impacter.impactTop10Normal,
-					get_report = ReportBuilder.GetNormalChallengeReport,
-					get_embed = EmbedBuilders.GetNormalChallengeEmbed,
-					post_to_discord = DiscordPoster.NormalChallengePoster,
-					report_header = ChallengeReportHeading.EnrichedChallengeHeader,
+					check_integrity = IntegrityChecker.CheckIntegrity_Normal,
+					impact_players = PlayerHistoryImpacter.ImpactPlayers_Normal,
+					impact_top10 = Top10Impacter.ImpactTopBestList_Normal,
+					get_report = ReportBuilder.GetReport_Normal,
+					get_embed = EmbedBuilders.GetEmbed_Normal,
+					post_to_discord = DiscordPoster.PostToDiscord_Normal,
+					report_header = ChallengeReportHeading.ReportHeader_2v2Challenge,
 				),
 				has_replays = True, 
 				version = row["version"],
@@ -669,8 +714,8 @@ class ChallengeEvent:
 		return ";".join(columns)+"\n"
 		
 	def post(self: "ChallengeEvent", confirmed: bool, delay: int) -> None:
-		if not confirmed and not get_boolean(f"\tConfirm send challenge Nº{self.id} to Chlng|Updates?"):
-			return
+		# if not confirmed and not get_boolean(f"\tConfirm send challenge Nº{self.id} to Chlng|Updates?"):
+			# return
 		if delay:
 			wait_minutes(delay)
 		discord_message = "📢 **Challenge Update!** A new match result is in! Check out the details below."
@@ -730,16 +775,16 @@ class ChallengeEvent:
 	def __repr__(self: "ChallengeEvent"):
 		return f"|Cha{self.id}|{self.version}|{self.winner}{self.winner.wins}|{self.loser}{self.loser.wins}|"
 		
-	def __str__(self: "ChallengeEvent"):
+	def ToStr(self: "ChallengeEvent"):
 		return (
 			"\n------------------------------------"
-			f"\n{self.replays_dir.stem if self.has_replays else 'NO_GAMES_NO_REPLAYS'}"
-			"\n```diff\n"
-			f"\n- Challenge № {self.id}"
-			f"\n- Update {self.fecha}"
-			f"{self.behavior.get_report(self)}"
-			f"\n\nLet the challenges continue!"
-			f"\n\n{self.top10string}```"
+			+ f"\n{self.replays_dir.stem if self.has_replays else 'NO_GAMES_NO_REPLAYS'}"
+			+ "\n```diff\n"
+			+ f"\n- Challenge № {self.id}"
+			+ f"\n- Update {self.fecha}"
+			+ self.behavior.get_report(self)
+			+ f"\n\nLet the challenges continue!"
+			+ f"\n\n{self.top10string}```"
 		)
 		
 			
@@ -777,7 +822,7 @@ class PlayerInChallenge:
 	def days_since_last_chall(self) -> int:
 		return (self.challenge.date - self.previous_challenge.date).days
 		
-	@cached_property
+	@property
 	def rank_ordinal(self) -> str:
 		ordinal = { 
 			0: "1st", 1: "2nd", 2: "3rd", 3: "4th", 4: "5th", 5: "6th", 6: "7th", 7: "8th", 8: "9th", 
@@ -800,20 +845,19 @@ class PlayerInChallenge:
 		return f"|{self.key}|"
 
 
-from pprint import pprint
 
 #-------------------------------------------------------------------------------------------------------------#
 #"""---------------------------------------BaseDeDatos.Class.04-----------------------------------------"""#
 #-------------------------------------------------------------------------------------------------------------#
 class BaseDeDatosClass:
 	PLAYERS:dict[str, PlayerHistory]
-	top10list:list[PlayerHistory]
+	TopPlayersList:list[PlayerHistory]
 	def __init__(self, players_json: Path, chacsv: Path):
 		player_data: dict[str, dict[str, dict[str, list[str]]]] = json.load(open(players_json))
 		self.chacsv = chacsv
-		pprint(player_data["active_players"])
+		# pprint(player_data["active_players"])
 		self.PLAYERS  = { key: PlayerHistory(key, value) for key, value in player_data["active_players"].items() }
-		self.top10list = list(map(lambda x: self.PLAYERS[x], player_data["legacy"]["top10"]))
+		self.TopPlayersList = list(map(lambda x: self.PLAYERS[x], player_data["legacy"]["top10"]))
 	
 	def re_write_csv_dabase(self: "BaseDeDatosClass"):
 		# if not get_boolean("Are you sure you want to re-write the .csv database? You better have a backup"):
@@ -863,10 +907,19 @@ class ChallengeSystem:
 	
 	
 	def show_most_inactive_players(self: "ChallengeSystem") -> None:
-		# sorted_players = sorted(BaseDeDatos.top10list[0:10], key=lambda x: [x.last_challenge.date]) # type: ignore
+		# sorted_players = sorted(BaseDeDatos.TopPlayersList[0:10], key=lambda x: [x.last_challenge.date]) # type: ignore
 		print("Most inactive players")
-		for i, player, in enumerate(BaseDeDatos.top10list, start=1):
+		for i, player, in enumerate(BaseDeDatos.TopPlayersList, start=1):
 			print(f"Rank {i}: {player.name} | Inactive days: {player.last_active_challenge()}")
+			
+	
+	
+	def show_2v2_chllenges(self: "ChallengeSystem") -> None:
+		# sorted_players = sorted(BaseDeDatos.TopPlayersList[0:10], key=lambda x: [x.last_challenge.date]) # type: ignore
+		print("show_2v2_chllenges")
+		for cha in BaseDeDatos.CHALLENGES:
+			if cha.games2v2:
+				print(f"Challenge {cha.id}")
 			
 	
 	
@@ -878,20 +931,20 @@ class ChallengeSystem:
 		
 	def get_top_best_string(self: "ChallengeSystem") -> str:
 		top10string = f"\t\tTOP {self.top_of+1}\n"
-		# ic(BaseDeDatos.top10list)
+		# ic(BaseDeDatos.TopPlayersList)
 		for i in range(self.top_of, -1, -1):	#iterar del 9 al 0
-			if i >= len(BaseDeDatos.top10list):
+			if i >= len(BaseDeDatos.TopPlayersList):
 				continue
-			player = BaseDeDatos.top10list[i]
+			player = BaseDeDatos.TopPlayersList[i]
 			top10string += f"\t{i+1:<4}. {player.name:20} {player.cha_wins}-{player.cha_loses}\n"
 		return top10string
 	
 	def set_top10_rank(self: "ChallengeSystem", player:PlayerInChallenge) -> None:
 		try:
-			player.rank = BaseDeDatos.top10list.index(player.history)
+			player.rank = BaseDeDatos.TopPlayersList.index(player.history)
 		except ValueError:
-			BaseDeDatos.top10list.append(player.history)
-			player.rank = BaseDeDatos.top10list.index(player.history)
+			BaseDeDatos.TopPlayersList.append(player.history)
+			player.rank = BaseDeDatos.TopPlayersList.index(player.history)
 	
 	def write_status(self: "ChallengeSystem") -> None:
 		super_string = "\n".join(str(player.get_status()) for player in sorted( BaseDeDatos.PLAYERS.values() ))
@@ -912,7 +965,7 @@ class ChallengeSystem:
 		for num, cha in enumerate( sorted( BaseDeDatos.CHALLENGES,reverse=True ) , start=1):
 			if num == 1:
 				cha.Rename_existing_replaypack("torename.rar", compress=False)
-				print(cha)
+				print(cha.ToStr())
 			super_string += str(cha)
 		
 		with open(self.chalog, "w", encoding='utf-8') as file:
@@ -1052,7 +1105,8 @@ if __name__ == "__main__":
 	
 	ChaSys.write_chalog();
 	ChaSys.write_status();
-	ChaSys.show_most_inactive_players();
+	# ChaSys.show_most_inactive_players();
+	# ChaSys.show_2v2_chllenges();
 	
 	# ChaSys.write_embeds();
 	# BaseDeDatos.re_write_csv_dabase();
