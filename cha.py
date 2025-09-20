@@ -85,14 +85,22 @@ class Top10Impacter:
 			BaseDeDatos.top10list.insert(event.loser.history.get_rank(), event.winner.history) 
 
 	@staticmethod 
-	def impactTop10Challengeless(event: "ChallengeEvent"):
+	def impactTop10InsertAtRank10(event: "ChallengeEvent"):
 		"KickAddChallenge - unique method"
-		# if not isinstance(event, KickAddChallenge):
-		# 	raise Exception(f"Wtf class? {type(event)}")
+		insert_at_rank = 10
 		BaseDeDatos.top10list.remove(event.loser.history)
 		BaseDeDatos.top10list.remove(event.winner.history)
-		BaseDeDatos.top10list.insert(ChaSys.TOP_OF, event.loser.history)
-		BaseDeDatos.top10list.insert(ChaSys.TOP_OF, event.winner.history)
+		BaseDeDatos.top10list.insert(insert_at_rank-1, event.loser.history)
+		BaseDeDatos.top10list.insert(insert_at_rank-1, event.winner.history)
+
+	@staticmethod 
+	def impactTop10InsertAtRank12(event: "ChallengeEvent"):
+		"KickAddChallenge - unique method"
+		insert_at_rank = 12
+		BaseDeDatos.top10list.remove(event.loser.history)
+		BaseDeDatos.top10list.remove(event.winner.history)
+		BaseDeDatos.top10list.insert(insert_at_rank-1, event.loser.history)
+		BaseDeDatos.top10list.insert(insert_at_rank-1, event.winner.history)
 
 @dataclass
 class ChallengeBehavior:
@@ -167,7 +175,7 @@ class EmbedBuilders:
 					"value": (
 						"```diff\n"
 						f"- {event.defender.history.name} ({event.defender.rank_ordinal}) has been kicked from the list.\n"
-						f"+ {event.challenger.history.name} has been set to in the 10th spot.\n"
+						f"+ {event.challenger.history.name} has been set to the 10th spot.\n"
 						"```"
 					),
 					"inline": False
@@ -566,7 +574,7 @@ class ChallengeEvent:
 				winner = winner,
 				loser = loser
 			)
-		elif version == "KICK_ADD_MODE":
+		elif version == "KICK_AND_ADD_AT_10":
 			return cls(
 				id = cha_id, 
 				row = row, 
@@ -574,7 +582,28 @@ class ChallengeEvent:
 				behavior = ChallengeBehavior(
 					check_integrity = IntegrityChecker.checkNoGamesChall,
 					impact_players = PlayerHistoryImpacter.impactNoGamesChall,
-					impact_top10 = Top10Impacter.impactTop10Challengeless,
+					impact_top10 = Top10Impacter.impactTop10InsertAtRank10,
+					get_report = ReportBuilder.GetKickAddReport,
+					get_embed = EmbedBuilders.GetKickAddChallengeEmbed,
+					post_to_discord = DiscordPoster.KickAddChallengePoster,
+					report_header = ChallengeReportHeading.NoChallengeHeader,
+				),
+				has_replays = False, 
+				version = row["version"],
+				date = date,
+				notes = row['notes'],
+				winner = winner,
+				loser = loser
+			)
+		elif version == "KICK_AND_ADD_AT_12":
+			return cls(
+				id = cha_id, 
+				row = row, 
+				embed_color = HtmlColors.PURPLEISH, 
+				behavior = ChallengeBehavior(
+					check_integrity = IntegrityChecker.checkNoGamesChall,
+					impact_players = PlayerHistoryImpacter.impactNoGamesChall,
+					impact_top10 = Top10Impacter.impactTop10InsertAtRank12,
 					get_report = ReportBuilder.GetKickAddReport,
 					get_embed = EmbedBuilders.GetKickAddChallengeEmbed,
 					post_to_discord = DiscordPoster.KickAddChallengePoster,
@@ -618,7 +647,7 @@ class ChallengeEvent:
 		
 		self.behavior.impact_players(self)
 		self.behavior.impact_top10(self)
-		self.top10string = ChaSys.get_top10string()
+		self.top10string = ChaSys.get_top_best_string()
 			
 	def Rename_existing_replaypack(self: "ChallengeEvent", torename:str, compress:bool) -> None:
 		if self.has_replays:
@@ -771,7 +800,7 @@ class PlayerInChallenge:
 		return f"|{self.key}|"
 
 
-
+from pprint import pprint
 
 #-------------------------------------------------------------------------------------------------------------#
 #"""---------------------------------------BaseDeDatos.Class.04-----------------------------------------"""#
@@ -782,6 +811,7 @@ class BaseDeDatosClass:
 	def __init__(self, players_json: Path, chacsv: Path):
 		player_data: dict[str, dict[str, dict[str, list[str]]]] = json.load(open(players_json))
 		self.chacsv = chacsv
+		pprint(player_data["active_players"])
 		self.PLAYERS  = { key: PlayerHistory(key, value) for key, value in player_data["active_players"].items() }
 		self.top10list = list(map(lambda x: self.PLAYERS[x], player_data["legacy"]["top10"]))
 	
@@ -823,13 +853,12 @@ class BaseDeDatosClass:
 		
 		
 class ChallengeSystem:
-	TOP_OF = 9 # 14 # 20
-	def __init__(self, chareps: Path, chalog: Path, status: Path, webhook_url:str) -> None:
+	def __init__(self, chareps: Path, chalog: Path, status: Path, webhook_url:str, top_of:int ) -> None:
 		self.chareps = chareps
 		self.chalog = chalog
 		self.status = status
 		self.webhook_url = webhook_url
-	
+		self.top_of = top_of
 	###----------------ChallengeSystem.Public.Methods------------###
 	
 	
@@ -847,10 +876,10 @@ class ChallengeSystem:
 		for challenge in BaseDeDatos.CHALLENGES:
 			challenge.do_stuff()
 		
-	def get_top10string(self: "ChallengeSystem") -> str:
-		top10string = "\t\tTOP 10\n"
+	def get_top_best_string(self: "ChallengeSystem") -> str:
+		top10string = f"\t\tTOP {self.top_of+1}\n"
 		# ic(BaseDeDatos.top10list)
-		for i in range(self.TOP_OF, -1, -1):	#iterar del 9 al 0
+		for i in range(self.top_of, -1, -1):	#iterar del 9 al 0
 			if i >= len(BaseDeDatos.top10list):
 				continue
 			player = BaseDeDatos.top10list[i]
@@ -1011,6 +1040,7 @@ if __name__ == "__main__":
 		chalog = Path(r"output/challenges.log"),
 		status = Path(r"output/status.log"),
 		webhook_url = SECRETS.PIG_WEB_HOOK,
+		top_of = 11 # 14 # 20,
 	)
 	ChaSys.do_stuff()
 	

@@ -11,6 +11,10 @@
         }
     },
     "active_players": {
+        "HASQ": {
+            "nicknames": ["HashQ"],
+            "discord_ids": ["#hashbrown_"]
+        },
         "KIDD": {
             "nicknames": ["Kid Kurddi"],
             "discord_ids": ["#kurddstompa_79556"]
