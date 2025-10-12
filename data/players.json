@@ -8,13 +8,13 @@
         },
         "SIBEL": {
             "nicknames": ["SNOWBL4CK", "D3ATH^G0D"]
-        },
-        "SEVENOILS": {
-            "nicknames": ["SevenOils"],
-            "discord_ids": ["#lordmumpitzjr"]
         }
     },
     "active_players": {
+        "SEVENOILS": {
+            "nicknames": ["SevenOils"],
+            "discord_ids": ["#lordmumpitzjr"]
+        },
         "HASQ": {
             "nicknames": ["HashQ"],
             "discord_ids": ["#hashbrown_"]
