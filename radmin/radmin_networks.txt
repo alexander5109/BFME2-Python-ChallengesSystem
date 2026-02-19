@@ -1,0 +1,9 @@
+Radmin networks for BFME2 1.09: 
+	network: Cow&Pig
+	pass: 123456
+	
+	network: Cow&Pig 2
+	pass: 123456
+	
+	network: Cow&Pig2
+	pass: 123456
