@@ -1,9 +1,14 @@
-Radmin networks for BFME2 1.09: 
-	network: Cow&Pig
-	pass: 123456
-	
-	network: Cow&Pig 2
-	pass: 123456
-	
-	network: Cow&Pig2
-	pass: 123456
+Play BFME2 Online (LAN via RadminVPN)
+
+RadminVPN creates a virtual LAN so you can play BFME2 through the "Network" tab.
+
+1) Install RadminVPN (download from its official website).
+2) Join one of these networks:
+
+Cow&Pig      | Password: 123456
+Cow&Pig 2    | Password: 123456
+
+3) Open BFME2 → Multiplayer → Network
+4) Host or join a match.
+
+No port forwarding required.
