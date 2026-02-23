@@ -921,8 +921,14 @@ class ChallengeSystem:
 	def show_most_inactive_players(self: "ChallengeSystem") -> None:
 		# sorted_players = sorted(BaseDeDatos.TopPlayersList[0:10], key=lambda x: [x.last_challenge.date]) # type: ignore
 		print("Most inactive players")
-		for i, player, in enumerate(BaseDeDatos.TopPlayersList, start=1):
+		for i, player, in enumerate(BaseDeDatos.TopPlayersList[0:12], start=1):
 			print(f"Rank {i}: {player.name} | Inactive days: {player.last_active_challenge()}")
+			
+			
+		# inactivos_sorted = sorted(BaseDeDatos.TopPlayersList[0:10], key=lambda x: x.last_active_challenge() if x.last_active_challenge() is not None else 99999999999)
+		# ic(inactivos_sorted)
+		# for i, player, in enumerate(BaseDeDatos.TopPlayersList, start=1):
+			# print(f"Rank {i}: {player.name} | Inactive days: {player.last_active_challenge()}")
 			
 	
 	
@@ -1120,7 +1126,7 @@ if __name__ == "__main__":
 	ChaSys.write_chalog();
 	ChaSys.write_status();
 	ChaSys.rename_last_n_replaypacks(20);
-	# ChaSys.show_most_inactive_players();
+	ChaSys.show_most_inactive_players();
 	# ChaSys.show_2v2_chllenges();
 	
 	# ChaSys.write_embeds();
