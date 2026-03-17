@@ -1,3 +1,4 @@
+import enum
 from dataclasses import dataclass
 from pathlib import Path
 from icecream import ic
@@ -9,7 +10,7 @@ import requests
 import sys
 import time
 from dotenv import load_dotenv
-from typing import Protocol, Union, Optional, cast, Any, Callable, Type, List, Dict # type: ignore
+from typing import Optional, cast, Any, Callable, Type
 import os
 # from pprint import pprint
 load_dotenv()
@@ -18,7 +19,21 @@ class SECRETS:
     TOKEN = os.environ["TOKEN"]
 
 	
+class ChallengeType(enum.Enum):
+    NORMAL = enum.auto()
+    NO_SCORE = enum.auto()
+    KICK_ADD_10 = enum.auto()
+    KICK_ADD_12 = enum.auto()
 	
+def resolve_type(version: str) -> ChallengeType:
+	if version == "NO_SCORE_MODE":
+		return ChallengeType.NO_SCORE
+	elif version == "KICK_AND_ADD_AT_10":
+		return ChallengeType.KICK_ADD_10
+	elif version == "KICK_AND_ADD_AT_12":
+		return ChallengeType.KICK_ADD_12
+	else:
+		return ChallengeType.NORMAL
 # //--------------------------------------------------------------------//
 # ;;---------------------ok. funciones.input--------------------------;;
 # //--------------------------------------------------------------------//
@@ -35,7 +50,7 @@ class IntegrityChecker:
 		if not event.games_total:
 			raise Exception(f"Error en el csv. Los jugadores deben tener juegos en un challenge tipo {event.version}.")
 		if event.winner.wins <= event.loser.wins:
-			raise Exception(f"Error de integridad: Como es posible que el ganador no tenga mas victorias que el perdedor?")
+			raise Exception("Error de integridad: Como es posible que el ganador no tenga mas victorias que el perdedor?")
 
 class ChallengeReportHeading:
 	@staticmethod 
@@ -105,7 +120,7 @@ class Top10Impacter:
 	
 class EmbedBuilders:
 	@classmethod 
-	def __base_embed(cls: Type["EmbedBuilders"], event: "ChallengeEvent") -> Dict[str, Any]:
+	def __base_embed(cls: Type["EmbedBuilders"], event: "ChallengeEvent") -> dict[str, Any]:
 		return {
 			"color": event.embed_color,
 			"title": "A new Challenge has been registered!",
@@ -121,7 +136,7 @@ class EmbedBuilders:
 		
 		
 	@classmethod 
-	def GetEmbed_NoScoreChall(cls: Type["EmbedBuilders"], event: "ChallengeEvent") -> Dict[str, Any]:
+	def GetEmbed_NoScoreChall(cls: Type["EmbedBuilders"], event: "ChallengeEvent") -> dict[str, Any]:
 		#NoScoreChallenge behavior
 		return cls.__base_embed(event) | {
 			"fields": [{
@@ -152,7 +167,7 @@ class EmbedBuilders:
 		}
 		
 	@classmethod
-	def GetEmbed_KickAddModeAt10(cls: Type["EmbedBuilders"], event: "ChallengeEvent") -> Dict[str, Any]:
+	def GetEmbed_KickAddModeAt10(cls: Type["EmbedBuilders"], event: "ChallengeEvent") -> dict[str, Any]:
 		#KickAddChallenge behavior
 		return cls.__base_embed(event) | {
 			"fields": [{
@@ -182,7 +197,7 @@ class EmbedBuilders:
 			],
 		}
 	@classmethod
-	def GetEmbed_KickAddModeAt12(cls: Type["EmbedBuilders"], event: "ChallengeEvent") -> Dict[str, Any]:
+	def GetEmbed_KickAddModeAt12(cls: Type["EmbedBuilders"], event: "ChallengeEvent") -> dict[str, Any]:
 		#KickAddChallenge behavior
 		return cls.__base_embed(event) | {
 			"fields": [{
@@ -213,7 +228,7 @@ class EmbedBuilders:
 		}
 		
 	@classmethod 
-	def GetEmbed_Normal(cls: Type["EmbedBuilders"], event: "ChallengeEvent") -> Dict[str, Any]:
+	def GetEmbed_Normal(cls: Type["EmbedBuilders"], event: "ChallengeEvent") -> dict[str, Any]:
 		#NormalChallenge behavior
 		score = f"- **Score 1vs1**: {event.winner.wins1v1}-{event.loser.wins1v1} for **{event.winner.history.name}**"
 		if event.games2v2:
@@ -221,7 +236,7 @@ class EmbedBuilders:
 				f"\n- **Score 2vs2**: {event.winner.wins2v2}-{event.loser.wins2v2} for **{event.winner.history.name}**"
 				f"\n- **Total Score**: {event.winner.wins}-{event.loser.wins} for **{event.winner.history.name}**"
 			)
-		embed: Dict[str, Any] = cls.__base_embed(event) | {
+		embed: dict[str, Any] = cls.__base_embed(event) | {
 			"fields": [{
 					"name": "Players",
 					"value": (
@@ -581,11 +596,12 @@ class ChallengeBehavior:
 	post_to_discord: Callable
 	report_header: Callable
 	
-	
+
 	
 @dataclass(frozen=False)
 class ChallengeEvent:
 	id: int
+	type: ChallengeType
 	embed_color: int
 	behavior: ChallengeBehavior
 	version: str
@@ -598,13 +614,15 @@ class ChallengeEvent:
 	###--------------------ChallengeEvent.Static.Methods-------------###
 	@classmethod
 	def FromRow(cls:Type["ChallengeEvent"], cha_id:int, version:str, row:dict[str, str]) -> "ChallengeEvent":
+		cha_type = resolve_type(version)
 		winner = PlayerInChallenge(cha_id, row["w_key"], row["w_wins1v1"], row["w_wins2v2"])
 		loser = PlayerInChallenge(cha_id, row["l_key"], row["l_wins1v1"], row["l_wins2v2"])
 		date = datetime.strptime(row["date"], '%Y-%m-%d')
 		
-		if version == "NO_SCORE_MODE":
+		if cha_type == ChallengeType.NO_SCORE:
 			return cls(
 				id = cha_id, 
+				type = cha_type,
 				embed_color = HtmlColors.ORANGEISH, 
 				behavior = ChallengeBehavior(
 					check_integrity = IntegrityChecker.CheckIntegrity_NoGames,
@@ -622,9 +640,10 @@ class ChallengeEvent:
 				winner = winner,
 				loser = loser
 			)
-		elif version == "KICK_AND_ADD_AT_10":
+		elif cha_type == ChallengeType.KICK_ADD_10:
 			return cls(
 				id = cha_id, 
+				type = cha_type,
 				embed_color = HtmlColors.PURPLEISH, 
 				behavior = ChallengeBehavior(
 					check_integrity = IntegrityChecker.CheckIntegrity_NoGames,
@@ -642,9 +661,10 @@ class ChallengeEvent:
 				winner = winner,
 				loser = loser
 			)
-		elif version == "KICK_AND_ADD_AT_12":
+		elif cha_type == ChallengeType.KICK_ADD_12:
 			return cls(
 				id = cha_id, 
+				type = cha_type,
 				embed_color = HtmlColors.PURPLEISH, 
 				behavior = ChallengeBehavior(
 					check_integrity = IntegrityChecker.CheckIntegrity_NoGames,
@@ -665,6 +685,7 @@ class ChallengeEvent:
 		else:
 			return cls(
 				id = cha_id, 
+				type = cha_type,
 				embed_color = HtmlColors.BLUEISH,
 				behavior = ChallengeBehavior(
 					check_integrity = IntegrityChecker.CheckIntegrity_Normal,
@@ -764,7 +785,7 @@ class ChallengeEvent:
 		return self.winner if self.challenger is self.loser else self.loser
 		
 	@cached_property
-	def embed(self: "ChallengeEvent") -> Dict[str, Any]:
+	def embed(self: "ChallengeEvent") -> dict[str, Any]:
 		return self.behavior.get_embed(self)
 		
 	@cached_property
@@ -785,7 +806,7 @@ class ChallengeEvent:
 		return self.id < other.id
 		
 	def __repr__(self: "ChallengeEvent"):
-		return f"|Cha{self.id}|{self.version}|{self.winner}{self.winner.wins}|{self.loser}{self.loser.wins}|"
+		return f"```|Cha{self.id}|{self.version}|{self.winner}{self.winner.wins}|{self.loser}{self.loser.wins}|{self.fecha}```"
 		
 	def ToStr(self: "ChallengeEvent"):
 		return (
@@ -795,7 +816,7 @@ class ChallengeEvent:
 			+ f"\n- Challenge № {self.id}"
 			+ f"\n- Update {self.fecha}"
 			+ self.behavior.get_report(self)
-			+ f"\n\nLet the challenges continue!"
+			+ "\n\nLet the challenges continue!"
 			+ f"\n\n{self.top10string}```"
 		)
 		
@@ -919,30 +940,19 @@ class ChallengeSystem:
 	
 	
 	def show_most_inactive_players(self: "ChallengeSystem") -> None:
-		# sorted_players = sorted(BaseDeDatos.TopPlayersList[0:10], key=lambda x: [x.last_challenge.date]) # type: ignore
+		# sorted_players = sorted(BaseDeDatos.TopPlayersList[0:10], key=lambda x: [x.last_challenge.date]) 
 		print("Most inactive players")
 		for i, player, in enumerate(BaseDeDatos.TopPlayersList[0:12], start=1):
 			print(f"Rank {i}: {player.name} | Inactive days: {player.last_active_challenge()}")
-			
-			
-		# inactivos_sorted = sorted(BaseDeDatos.TopPlayersList[0:10], key=lambda x: x.last_active_challenge() if x.last_active_challenge() is not None else 99999999999)
-		# ic(inactivos_sorted)
-		# for i, player, in enumerate(BaseDeDatos.TopPlayersList, start=1):
-			# print(f"Rank {i}: {player.name} | Inactive days: {player.last_active_challenge()}")
-			
 	
 	
 	def show_2v2_chllenges(self: "ChallengeSystem") -> None:
-		# sorted_players = sorted(BaseDeDatos.TopPlayersList[0:10], key=lambda x: [x.last_challenge.date]) # type: ignore
+		# sorted_players = sorted(BaseDeDatos.TopPlayersList[0:10], key=lambda x: [x.last_challenge.date]) 
 		print("show_2v2_chllenges")
 		for cha in BaseDeDatos.CHALLENGES:
 			if cha.games2v2:
 				print(f"Challenge {cha.id}")
 			
-	
-	
-	
-	
 		
 	def get_top_best_string(self: "ChallengeSystem") -> str:
 		top10string = f"\t\tTOP {self.top_of+1}\n"
@@ -980,7 +990,7 @@ class ChallengeSystem:
 			
 	def write_chalog(self: "ChallengeSystem") -> None:
 		# super_string = f"##AutoGenerated by 'ChallengeSystem' {datetime.today().strftime("%Y-%m-%d")}\nRegards, Bambi\n\n"
-		super_string = f"##AutoGenerated by 'ChallengeSystem'\nRegards, Bambi\n\n"
+		super_string = "##AutoGenerated by 'ChallengeSystem'\nRegards, Bambi\n\n"
 		for num, cha in enumerate( sorted( BaseDeDatos.CHALLENGES,reverse=True ) , start=1):
 			if num == 1:
 				cha.Rename_existing_replaypack(compress=False)
@@ -1002,7 +1012,7 @@ class ChallengeSystem:
 			BaseDeDatos.CHALLENGES[chakey].post(confirmed=True, delay=delay_between)
 			
 	def execute_argv_operations_if_any(self: "ChallengeSystem", argv: list[str]) -> None:
-		from shlex import split
+		# from shlex import split
 
 		# Rango válido de challenges
 		min_chall = BaseDeDatos.CHALLENGES[0].id
@@ -1082,6 +1092,16 @@ class ChallengeSystem:
 	def consult_03_player_vs_player(self:"ChallengeSystem", p1_key:str, p2_key:str, print_em:bool) -> Optional[bool]:
 		return BaseDeDatos.PLAYERS[p1_key].get_1v1_vs(BaseDeDatos.PLAYERS[p2_key], print_em=print_em)
 		
+	def print_player_wins(self: "ChallengeSystem", winnerKey: str):
+		print("#-------------------print_player_wins-------------------------")
+		player = BaseDeDatos.PLAYERS[winnerKey]
+		for cha in reversed(BaseDeDatos.CHALLENGES):
+			if (
+				cha.winner.history is player
+				and cha.type == ChallengeType.NORMAL
+			):
+				print(cha)
+		print("#----------------------------------END-------------------------------------------")
 	###----------------ChallengeSystem.Static.Methods------------###
 	# @staticmethod
 	# def compress_folder(folder_path):
@@ -1123,16 +1143,17 @@ if __name__ == "__main__":
 	
 	
 	
-	ChaSys.write_chalog();
-	ChaSys.write_status();
-	ChaSys.rename_last_n_replaypacks(20);
-	ChaSys.show_most_inactive_players();
+	ChaSys.write_chalog()
+	ChaSys.write_status()
+	ChaSys.rename_last_n_replaypacks(20)
+	ChaSys.show_most_inactive_players()
 	# ChaSys.show_2v2_chllenges();
 	
 	# ChaSys.write_embeds();
 	# BaseDeDatos.re_write_csv_dabase();
 	
 	
+	ChaSys.print_player_wins("DOBBY")
 		
 	"""1. Consultas functions"""
 	# ChaSys.consult_03_player_vs_player("ECTH", "ANDY", print_em=True)
@@ -1141,7 +1162,6 @@ if __name__ == "__main__":
 	# ChaSys.consult_03_player_vs_player("ECTH", "YUSUF", print_em=True)
 	# ChaSys.consult_03_player_vs_player("ECTH", "ENUMA", print_em=True)
 	# ChaSys.consult_03_player_vs_player("ECTH", "GANNICUS", print_em=True)
-	
 	
 	
 	# ChaSys.consult_03_player_vs_player("OTTO", "ANDY", print_em=True)
@@ -1156,8 +1176,7 @@ if __name__ == "__main__":
 		# python cha.py 312
 		# python cha.py 314 post
 		# python cha.py 314 post_till_end
-	ChaSys.execute_argv_operations_if_any(sys.argv);
-	
+	ChaSys.execute_argv_operations_if_any(sys.argv)
 	"""3. SendToChlngUpdates"""
 	# ChaSys.get_challenge(hint=None).post(confirmed=false, delay=0)
 
